@@ -75,8 +75,16 @@ parameters:
     - "inventory_azure"
     - "setup_azure"
 
-trigger: none
+schedules:
+- cron: "0 1 * * 3"
+  displayName: 'Execute dev-pipeline every Wednesday'
+  branches:
+    include:
+      - dev
+      - '*.*'
+  always: true
 
+trigger: none
 pr:
 - dev
 
