@@ -11,7 +11,7 @@ __metaclass__ = type
 DOCUMENTATION = '''
 ---
 module: azure_rm_virtualhub
-version_added: '1.5.1'
+version_added: '1.7.0'
 short_description: Manage Azure VirtualHub instance
 description:
     - Create, update and delete instance of Azure VirtualHub.
@@ -209,15 +209,12 @@ EXAMPLES = '''
         virtual_wan:
           id: /subscriptions/xxx-xxx/resourceGroups/myResourceGroup/providers/Microsoft.Network/virtualWans/fredwan
 
-
     - name: Delete VirtualHub
       azure_rm_virtualhub:
         resource_group: myResourceGroup
         name: my_virtual_hub_name
         location: eastus
         state: absent
-
-
 '''
 
 RETURN = '''
