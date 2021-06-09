@@ -96,12 +96,14 @@ options:
             routes:
                 description:
                     - List of all routes.
+                elements: dict
                 type: list
                 suboptions:
                     address_prefixes:
                         description:
                             - List of all addressPrefixes.
                         type: list
+                        elements: str
                     next_hop_ip_address:
                         description:
                             - NextHop ip address.
@@ -114,6 +116,7 @@ options:
         description:
             - List of all virtual hub route table v2s associated with this VirtualHub.
         type: list
+        elements: dict
         suboptions:
             name:
                 description:
@@ -124,6 +127,7 @@ options:
                 description:
                     - List of all routes.
                 type: list
+                elements: dict
                 suboptions:
                     destination_type:
                         description:
@@ -133,6 +137,7 @@ options:
                         description:
                             - List of all destinations.
                         type: list
+                        elements: str
                     next_hop_type:
                         description:
                             - The type of next hops.
@@ -141,9 +146,11 @@ options:
                         description:
                             - NextHops ip address.
                         type: list
+                        elements: str
             attached_connections:
                 description:
                     - List of all connections attached to this route table v2.
+                elements: str
                 type: list
     sku:
         description:
@@ -153,6 +160,7 @@ options:
         description:
             - List of references to Bgp Connections.
         type: list
+        elements: dict
         suboptions:
             id:
                 description:
@@ -162,6 +170,7 @@ options:
         description:
             - List of references to IpConfigurations.
         type: list
+        elements: dict
         suboptions:
             id:
                 description:
@@ -175,6 +184,7 @@ options:
         description:
             - VirtualRouter IPs.
         type: list
+        elements: str
     enable_virtual_router_route_propogation:
         description:
             - Flag to control route propogation for VirtualRouter hub.

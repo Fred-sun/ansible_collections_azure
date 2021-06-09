@@ -119,6 +119,7 @@ options:
         description:
             - List of all vpn site links.
         type: list
+        elements: dict
         suboptions:
             name:
                 description:
