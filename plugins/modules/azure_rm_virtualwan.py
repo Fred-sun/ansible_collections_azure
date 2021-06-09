@@ -259,7 +259,7 @@ class AzureRMVirtualWan(AzureRMModuleBaseExt):
             virtual_hubs=dict(
                 type='list',
                 updatable=False,
-                elements=dict,
+                elements='dict',
                 disposition='/virtual_hubs',
                 options=dict(
                     id=dict(
@@ -271,7 +271,7 @@ class AzureRMVirtualWan(AzureRMModuleBaseExt):
             vpn_sites=dict(
                 type='list',
                 updatable=False,
-                elements=dict,
+                elements='dict',
                 disposition='/vpn_sites',
                 options=dict(
                     id=dict(
