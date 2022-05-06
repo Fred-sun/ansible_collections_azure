@@ -146,6 +146,12 @@ datafactory:
             type: str
             returned: always
             contains:
+                type:
+                    description:
+                        - Type of repo configuration.
+                    type: str
+                    returned: always
+                    sample: FactoryGitHubConfiguration
                 ccount_name:
                     description:
                         - Account name.
@@ -251,10 +257,13 @@ class AzureRMDataFactoryInfo(AzureRMModuleBase):
             result['identity']['principal_id'] = pip.identity.principal_id
             result['identity']['tenant_id'] = pip.identity.tenant_id
         if pip.repo_configuration:
+            result['repo_configuration']['type'] = pip.repo_configuration.type
             result['repo_configuration']['account_name'] = pip.repo_configuration.account_name
             result['repo_configuration']['repository_name'] = pip.repo_configuration.repository_name
             result['repo_configuration']['collaboration_branch'] = pip.repo_configuration.collaboration_branch 
-            result['repo_configuration']['project_name'] = pip.repo_configuration.project_name
+            result['repo_configuration']['root_folder'] = pip.repo_configuration.root_folder
+            if pip.repo_configuration.type == "FactoryVSTSConfiguration":
+                result['repo_configuration']['project_name'] = pip.repo_configuration.project_name
         return result
 
     def get_item(self):

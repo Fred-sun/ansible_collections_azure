@@ -36,29 +36,44 @@ options:
             - Should only be specified for get.
             - If the ETag matches the existing entity tag, or if * was provided, then no content will be returned.
         type: str
-    global_parameter:
+    repo_configuration:
         description:
-            - Global Parameter.
-        type: list
-        elements: dict
+            - The data factory repo configration.
+        type: dict
         suboptions:
             type:
                 description:
-                    - Global Parameter type
+                    - Type of repo configuration.
                 type: str
                 required: True
                 choices:
-                    - Object
-                    - String
-                    - Int
-                    - Float
-                    - Bool
-                    - Array
-            value:
+                    - FactoryGitHubConfiguration
+                    - FactoryVSTSConfiguration
+            account_name:
                 description:
-                    - Value of parameter.
+                    - Account name.
                 type: str
                 required: True
+            collaboration_branch:
+                description:
+                    - Collaboration branch.
+                type: str
+                required: True
+            root_folder:
+                description:
+                    - Root folder.
+                type: str
+                required: True
+            repository_name:
+                description:
+                    - Repository name.
+                type: str
+                required: True
+            project_name:
+                description:
+                    - VSTS project name.
+                    - Required when I(type=FactoryVSTSConfiguration).
+                type: str
     location:
         description:
             - Valid Azure location. Defaults to location of the resource group.
@@ -89,6 +104,17 @@ author:
 '''
 
 EXAMPLES = '''
+- name: Create the data factory
+  azure_rm_datafactory:
+    resource_group: "{{ resource_group }}"
+    name: "{{ name }}"
+    repo_configuration:
+      type: FactoryGitHubConfiguration
+      account_name: Fred-sun
+      collaboration_branch: testbranch
+      root_folder: "./"
+      repository_name: vault
+
 '''
 
 RETURN = '''
@@ -176,6 +202,12 @@ datafactory:
             type: str
             returned: always
             contains:
+                type:
+                    description:
+                        - Type of repo configuration.
+                    type: str
+                    returned: always
+                    sample: FactoryGitHubConfiguration
                 ccount_name:
                     description:
                         - Account name.
@@ -212,11 +244,14 @@ from ansible_collections.azure.azcollection.plugins.module_utils.azure_rm_common
 
 AZURE_OBJECT_CLASS = 'DataFactory'
 
-
-global_parameters_spec = dict(
-    type=dict(type='str', required=True, choices=['Object', 'String', 'Int', 'Float', 'Bool', 'Array']),
-    value=dict(type='str')
-)
+repo_configuration_spec = dict(
+    type=dict(type='str', required=True, choices=['FactoryVSTSConfiguration', 'FactoryGitHubConfiguration']),
+    account_name=dict(type='str', required=True),
+    repository_name=dict(type='str', required=True),
+    collaboration_branch=dict(type='str', required=True),
+    root_folder=dict(type='str', required=True),
+    project_name=dict(type='str'),
+    )
 
 
 class AzureRMDataFactory(AzureRMModuleBase):
@@ -226,24 +261,25 @@ class AzureRMDataFactory(AzureRMModuleBase):
         self.module_arg_spec = dict(
             name=dict(type='str', required=True),
             resource_group=dict(type='str', required=True),
-            global_parameters=dict(type='list', elements='dict', options=global_parameters_spec),
             if_match=dict(type='str'),
             location=dict(type='str'),
             public_network_access=dict(type='str', choices=["Enabled", "Disabled"]),
             state=dict(type='str', default='present', choices=['absent', 'present']),
+            repo_configuration=dict(type='dict', options=repo_configuration_spec),
         )
 
         self.results = dict(
             changed=False,
         )
+        mutually_exclusive = [['github_repo_configuration', 'vsts_repo_configuration']]
 
         self.name = None
         self.resource_group = None
-        self.global_parameters = None
         self.if_match = None
         self.location = None
         self.tags = None
         self.public_network_access = None
+        self.repo_configuration = None
 
         super(AzureRMDataFactory, self).__init__(self.module_arg_spec,
                                                   supports_check_mode=True,
@@ -273,52 +309,59 @@ class AzureRMDataFactory(AzureRMModuleBase):
                 else:
                     self.public_network_access = response['public_network_access']
 
-                result = response
-                if self.check_mode:
-                    if changed:
-                        self.log("Check mode test, Data factory, will be updated")
+                if self.repo_configuration is not None and self.repo_configuration != response['repo_configuration']:
+                    changed = True
                 else:
-                    if changed:
-                        update_parameters = self.datafactory_model.Factory(
-                            location=self.location,
-                            tags=self.tags,
-                            public_network_access=self.public_network_access,
-                            global_parameters=self.global_parameters,
-                        )
-                        result = self.create_or_update(update_parameters)
-
+                    self.repo_configuration = response['repo_configuration']
             else:
                 changed = True
-                if self.check_mode:
-                    self.log("Check mode test, Data factory isn't exist, will be created")
-                    result = dict()
-                else:
-                    create_parameters = self.datafactory_model.Factory(
+
+            if self.check_mode:
+                changed = True
+                self.log("Check mode test, Data factory will be create or update")
+            else:
+                if changed:
+                    if self.repo_configuration:
+                        if self.repo_configuration['type'] == 'FactoryGitHubConfiguration':
+                            repo_parameters = self.datafactory_model.FactoryGitHubConfiguration(
+                                account_name=self.repo_configuration.get('account_name'),
+                                repository_name=self.repo_configuration.get('repository_name'),
+                                collaboration_branch=self.repo_configuration.get('collaboration_branch'),
+                                root_folder=self.repo_configuration.get('root_folder')
+                            )
+                        else:
+                            repo_parameters = self.datafactory_model.FactoryVSTSConfiguration(
+                                account_name=self.repo_configuration.get('account_name'),
+                                repository_name=self.repo_configuration.get('repository_name'),
+                                collaboration_branch=self.repo_configuration.get('collaboration_branch'),
+                                root_folder=self.repo_configuration.get('root_folder'),
+                                project_name=self.repo_configuration.get('project_name'),
+                            )
+                    else:
+                        repo_parameters = None
+
+                    update_parameters = self.datafactory_model.Factory(
                         location=self.location,
                         tags=self.tags,
                         public_network_access=self.public_network_access,
-                        global_parameters=self.global_parameters,
+                        repo_configuration=repo_parameters
                     )
-                    result = self.create_or_update(create_parameters)
+
+                    response = self.create_or_update(update_parameters)
 
         else:
-            if response:
+            if self.check_mode:
                 changed = True
-                if self.check_mode:
-                    self.log("Check mode test")
-                    self.log("The Data factory {0} exist, will be deleted".format(self.name))
-                    result = dict()
-                else:
-                    self.log("The Data factory {0} exist, will be deleted".format(self.name))
-                    result = self.delete()
+                self.log("Check mode test")
+            if response:
+                self.log("The Data factory {0} exist, will be deleted".format(self.name))
+                changed = True
+                response = self.delete()
             else:
                 changed = False
-                result = dict()
-                if self.check_mode:
-                    self.log("Check mode test, Data factory isn't exist")
                 
         self.results['changed'] = changed
-        self.results['state'] = result
+        self.results['state'] = response
         return self.results
 
 
@@ -372,8 +415,11 @@ class AzureRMDataFactory(AzureRMModuleBase):
         if pip.repo_configuration:
             result['repo_configuration']['account_name'] = pip.repo_configuration.account_name
             result['repo_configuration']['repository_name'] = pip.repo_configuration.repository_name
-            result['repo_configuration']['collaboration_branch'] = pip.repo_configuration.collaboration_branch 
-            result['repo_configuration']['project_name'] = pip.repo_configuration.project_name
+            result['repo_configuration']['collaboration_branch'] = pip.repo_configuration.collaboration_branch
+            result['repo_configuration']['root_folder'] = pip.repo_configuration.root_folder
+            result['repo_configuration']['type'] = pip.repo_configuration.type
+            if pip.repo_configuration.type == "FactoryVSTSConfiguration":
+                result['repo_configuration']['project_name'] = pip.repo_configuration.project_name
         return result
 
 
