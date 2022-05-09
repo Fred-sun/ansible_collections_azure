@@ -284,6 +284,7 @@ class AzureRMDataFactory(AzureRMModuleBase):
         super(AzureRMDataFactory, self).__init__(self.module_arg_spec,
                                                   supports_check_mode=True,
                                                   supports_tags=True,
+                                                  mutually_exclusive=mutually_exclusive,
                                                   facts_module=False)
 
     def exec_module(self, **kwargs):

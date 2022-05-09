@@ -186,7 +186,7 @@ except Exception:
 
 from ansible_collections.azure.azcollection.plugins.module_utils.azure_rm_common import AzureRMModuleBase
 
-AZURE_OBJECT_CLASS = 'DataFactory'
+AZURE_OBJECT_CLASS = 'DataFactoryInfo'
 
 
 class AzureRMDataFactoryInfo(AzureRMModuleBase):
