@@ -105,6 +105,7 @@ try:
     from msrestazure.azure_exceptions import CloudError
     from azure.graphrbac import GraphRbacManagementClient
     from azure.graphrbac.models import GraphErrorException
+    from azure.common.credentials import get_cli_profile
 except ImportError:
     # This is handled in azure_rm_common
     pass
@@ -180,7 +181,7 @@ class AzureRMAccountInfo(AzureRMModuleBase):
         results['state'] = subscription_list_response[0].state
         results['managedByTenants'] = self.get_managed_by_tenants_list(subscription_list_response[0].managed_by_tenants)
         results['environmentName'] = self.azure_auth._cloud_environment.name
-        results['user'] = self.get_aduser_info(subscription_list_response[0].tenant_id)
+        results['user'] = self.get_aduser_info(subscription_list_response[0].tenant_id, subscription_list_response[0].subscription_id)
 
         return results
 
@@ -188,7 +189,7 @@ class AzureRMAccountInfo(AzureRMModuleBase):
 
         return [dict(tenantId=item.tenant_id) for item in object_list]
 
-    def get_aduser_info(self, tenant_id):
+    def get_aduser_info(self, tenant_id, subscription_id):
 
         # Create GraphRbacManagementClient for getting
         # "user": {
@@ -201,9 +202,14 @@ class AzureRMAccountInfo(AzureRMModuleBase):
 
         user = {}
         self.azure_auth_graphrbac = AzureRMAuth(is_ad_resource=True)
-        cred = self.azure_auth_graphrbac.azure_credentials
         base_url = self.azure_auth_graphrbac._cloud_environment.endpoints.active_directory_graph_resource_id
-        client = GraphRbacManagementClient(cred, tenant_id, base_url)
+        try:
+            profile = get_cli_profile()
+        except Exception as exc:
+            self.fail("Failed to load CLI profile {0}.".format(str(exc)))
+
+        cred = profile.get_login_credentials(subscription_id=subscription_id, resource=base_url)
+        client = GraphRbacManagementClient(cred[0], tenant_id, base_url)
 
         try:
             user_info = client.signed_in_user.get()
