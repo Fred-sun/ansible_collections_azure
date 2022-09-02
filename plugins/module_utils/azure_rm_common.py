@@ -277,6 +277,7 @@ try:
     from azure.mgmt.eventhub import EventHubManagementClient
     from azure.mgmt.datafactory import DataFactoryManagementClient
     import azure.mgmt.datafactory.models as DataFactoryModel
+    from azure.mgmt.hybridcompute import HybridComputeManagementClient
     from azure.identity._credentials import client_secret, user_password
 
 except ImportError as exc:
@@ -451,6 +452,7 @@ class AzureRMModuleBase(object):
         self._datafactory_client = None
         self._notification_hub_client = None
         self._event_hub_client = None
+        self._hybrid_client = None
 
         self.check_mode = self.module.check_mode
         self.api_profile = self.module.params.get('api_profile')
@@ -1413,6 +1415,15 @@ class AzureRMModuleBase(object):
     @property
     def datafactory_model(self):
         return DataFactoryModel
+
+    @property
+    def hybrid_client(self):
+        self.log('Getting hybrid compute client...')
+        if not self._hybrid_client:
+            self._hybrid_client = self.get_mgmt_svc_client(HybridComputeManagementClient,
+                                                           is_track2=True,
+                                                           base_url=self._cloud_environment.endpoints.resource_manager)
+        return self._hybrid_client
 
 
 class AzureSASAuthentication(Authentication):
