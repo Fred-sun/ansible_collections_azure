@@ -17,6 +17,7 @@ import json
 
 try:
     from azure.graphrbac import GraphRbacManagementClient
+    from msgraph.core import GraphClient
 except Exception:
     pass
 from os.path import expanduser
@@ -1452,6 +1453,9 @@ class AzureRMModuleBase(object):
     @property
     def datafactory_model(self):
         return DataFactoryModel
+
+    def get_msgraph_client(self):
+        return GraphClient(credential=self.azure_auth.azure_credential_track2)
 
 
 class AzureSASAuthentication(Authentication):
