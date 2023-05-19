@@ -27,7 +27,6 @@ options:
         description:
             - The tenant ID.
         type: str
-        required: True
     object_id:
         description:
             - It's service principal's object ID.
@@ -79,13 +78,7 @@ object_id:
 '''
 
 from ansible_collections.azure.azcollection.plugins.module_utils.azure_rm_common_ext import AzureRMModuleBase
-
-try:
-    from msrestazure.azure_exceptions import CloudError
-    from azure.graphrbac.models import GraphErrorException
-except ImportError:
-    # This is handled in azure_rm_common
-    pass
+import json
 
 
 class AzureRMADServicePrincipalInfo(AzureRMModuleBase):
@@ -101,11 +94,12 @@ class AzureRMADServicePrincipalInfo(AzureRMModuleBase):
         self.app_id = None
         self.object_id = None
         self.results = dict(changed=False)
+        required_one_of = [['app_id', 'object_id']]
 
         super(AzureRMADServicePrincipalInfo, self).__init__(derived_arg_spec=self.module_arg_spec,
                                                             supports_check_mode=True,
                                                             supports_tags=False,
-                                                            is_ad_resource=True)
+                                                            required_one_of=required_one_of)
 
     def exec_module(self, **kwargs):
 
@@ -115,24 +109,28 @@ class AzureRMADServicePrincipalInfo(AzureRMModuleBase):
         service_principals = []
 
         try:
-            client = self.get_graphrbac_client(self.tenant)
-            if self.object_id is None:
-                service_principals = list(client.service_principals.list(filter="servicePrincipalNames/any(c:c eq '{0}')".format(self.app_id)))
+            client = self.get_msgraph_client()
+            if self.object_id is not None:
+                service_principals = client.get('/serviceprincipals/' + self.object_id).json()
             else:
-                service_principals = [client.service_principals.get(self.object_id)]
+                url = "/serviceprincipals(appID='{0}')".format(self.app_id)
+                service_principals = client.get(url).json()
 
-            self.results['service_principals'] = [self.to_dict(sp) for sp in service_principals]
-        except GraphErrorException as ge:
+            if service_principals.get('error'):
+                self.results['service_principals'] = []
+            else:
+                self.results['service_principals'] = self.to_dict(service_principals)
+        except Exception as ge:
             self.fail("failed to get service principal info {0}".format(str(ge)))
 
         return self.results
 
     def to_dict(self, object):
         return dict(
-            app_id=object.app_id,
-            object_id=object.object_id,
-            app_display_name=object.display_name,
-            app_role_assignment_required=object.app_role_assignment_required
+            app_id=object['appId'],
+            object_id=object['id'],
+            app_display_name=object['appDisplayName'],
+            app_role_assignment_required=object['appRoleAssignmentRequired']
         )
 
 

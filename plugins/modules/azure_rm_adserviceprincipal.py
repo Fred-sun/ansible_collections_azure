@@ -29,7 +29,6 @@ options:
         description:
             - The tenant ID.
         type: str
-        required: True
     app_role_assignment_required:
         description:
             - Whether the Role of the Service Principal is set.
@@ -90,18 +89,7 @@ object_id:
 '''
 
 from ansible_collections.azure.azcollection.plugins.module_utils.azure_rm_common_ext import AzureRMModuleBaseExt
-try:
-    from azure.graphrbac.models import ServicePrincipalCreateParameters
-    from azure.graphrbac.models import ServicePrincipalUpdateParameters
-except Exception:
-    pass
-
-try:
-    from msrestazure.azure_exceptions import CloudError
-    from azure.graphrbac.models import GraphErrorException
-except ImportError:
-    # This is handled in azure_rm_common
-    pass
+import json
 
 
 class AzureRMADServicePrincipal(AzureRMModuleBaseExt):
@@ -109,7 +97,7 @@ class AzureRMADServicePrincipal(AzureRMModuleBaseExt):
 
         self.module_arg_spec = dict(
             app_id=dict(type='str', required=True),
-            tenant=dict(type='str', required=True),
+            tenant=dict(type='str'),
             state=dict(type='str', default='present', choices=['present', 'absent']),
             app_role_assignment_required=dict(type='bool')
         )
@@ -120,6 +108,7 @@ class AzureRMADServicePrincipal(AzureRMModuleBaseExt):
         self.app_role_assignment_required = None
         self.object_id = None
         self.results = dict(changed=False)
+        self.body = dict()
 
         super(AzureRMADServicePrincipal, self).__init__(derived_arg_spec=self.module_arg_spec,
                                                         supports_check_mode=False,
@@ -131,66 +120,67 @@ class AzureRMADServicePrincipal(AzureRMModuleBaseExt):
         for key in list(self.module_arg_spec.keys()):
             setattr(self, key, kwargs[key])
 
-        response = self.get_resource()
+            if key == 'app_id':
+                self.body['appId'] = kwargs[key]
+            elif key == 'app_role_assignment_required':
+                self.body['appRoleAssignmentRequired'] = kwargs[key]
+
+        client = self.get_msgraph_client()
+        response = self.get_resource(client)
 
         if response:
             if self.state == 'present':
                 if self.check_update(response):
-                    self.update_resource(response)
+                    self.update_resource(client, self.body)
+                else:
+                    self.results['service_principals'] = self.get_resource(client)
             elif self.state == 'absent':
-                self.delete_resource(response)
+                self.delete_resource(client, response)
         else:
             if self.state == 'present':
-                self.create_resource()
+                self.create_resource(client, self.body)
             elif self.state == 'absent':
                 self.log("try to delete non exist resource")
 
         return self.results
 
-    def create_resource(self):
+    def create_resource(self, client, body):
+        response = None
         try:
-            client = self.get_graphrbac_client(self.tenant)
-            response = client.service_principals.create(ServicePrincipalCreateParameters(app_id=self.app_id, account_enabled=True))
+            response = client.post('/serviceprincipals/', data=json.dumps(body), headers={'Content-Type': 'application/json'})
             self.results['changed'] = True
-            self.results.update(self.to_dict(response))
-            return response
-        except GraphErrorException as ge:
+            self.results['service_principals'] = self.get_resource(client)
+        except Exception as ge:
             self.fail("Error creating service principle, app id {0} - {1}".format(self.app_id, str(ge)))
 
-    def update_resource(self, old_response):
+    def update_resource(self, client, body):
+        response = None
         try:
-            client = self.get_graphrbac_client(self.tenant)
-            to_update = {}
-            if self.app_role_assignment_required is not None:
-                to_update['app_role_assignment_required'] = self.app_role_assignment_required
+            response = client.patch('/serviceprincipals/', data=json.dumps(body), headers={'Content-Type': 'application/json'})
 
-            client.service_principals.update(old_response['object_id'], to_update)
             self.results['changed'] = True
-            self.results.update(self.get_resource())
-
-        except GraphErrorException as ge:
+            self.results['service_principals'] = self.get_resource(client)
+        except Exception as ge:
             self.fail("Error updating the service principal app_id {0} - {1}".format(self.app_id, str(ge)))
 
-    def delete_resource(self, response):
+    def delete_resource(self, client, response):
         try:
-            client = self.get_graphrbac_client(self.tenant)
-            client.service_principals.delete(response.get('object_id'))
+            client.delete('/serviceprincipals/' + response.get('object_id'))
             self.results['changed'] = True
-            return True
-        except GraphErrorException as ge:
+        except Exception as ge:
             self.fail("Error deleting service principal app_id {0} - {1}".format(self.app_id, str(ge)))
 
-    def get_resource(self):
+    def get_resource(self, client):
         try:
-            client = self.get_graphrbac_client(self.tenant)
-            result = list(client.service_principals.list(filter="servicePrincipalNames/any(c:c eq '{0}')".format(self.app_id)))
-            if not result:
-                return False
-            result = result[0]
-            return self.to_dict(result)
-        except GraphErrorException as ge:
+            url = "/serviceprincipals(appID='{0}')".format(self.app_id)
+            result = client.get(url).json()
+
+            if result.get('error') is not None:
+                return None
+            else:
+                return self.to_dict(result)
+        except Exception as ge:
             self.log("Did not find the graph instance instance {0} - {1}".format(self.app_id, str(ge)))
-            return False
 
     def check_update(self, response):
         app_assignment_changed = self.app_role_assignment_required is not None and \
@@ -200,10 +190,10 @@ class AzureRMADServicePrincipal(AzureRMModuleBaseExt):
 
     def to_dict(self, object):
         return dict(
-            app_id=object.app_id,
-            object_id=object.object_id,
-            app_display_name=object.display_name,
-            app_role_assignment_required=object.app_role_assignment_required
+            app_id=object['appId'],
+            object_id=object['id'],
+            app_display_name=object['appDisplayName'],
+            app_role_assignment_required=object['appRoleAssignmentRequired']
         )
 
 
