@@ -34,13 +34,13 @@ options:
         description:
             - The object id for the user.
             - Updates or deletes the user who has this object ID.
+            - Mutually exclusive with I(user_principal_name), I(attribute_name), and I(odata_filter).
         type: str
     account_enabled:
         description:
             - A boolean determing whether or not the user account is enabled.
             - Used when either creating or updating a user account.
         type: bool
-        default: True
     display_name:
         description:
             - The display name of the user.
@@ -76,10 +76,22 @@ options:
             - The password for the user.
             - Used when either creating or updating a user account.
         type: str
+    usage_location:
+        description:
+            - A two letter country code, ISO standard 3166.
+            - Required for a user that will be assigned licenses due to legal requirement to check for availability of services in countries.
+            - Used when either creating or updating a user account.
+        type: str
+    user_type:
+        description:
+            - A string value that can be used to classify user types in your directory, such as Member and Guest.
+            - Used when either creating or updating a user account.
+        type: str
     user_principal_name:
         description:
             - The principal name of the user.
             - Creates, updates, or deletes the user who has this principal name.
+            - Mutually exclusive with I(object_id), I(attribute_name), and I(odata_filter).
         type: str
     attribute_name:
         description:
@@ -105,8 +117,7 @@ extends_documentation_fragment:
     - azure.azcollection.azure
 
 author:
-    - xuzhang3 (@xuzhang3)
-    - Fred-sun (@Fred-sun)
+    - Cole Neubauer(@coleneubauer)
 
 '''
 
@@ -139,6 +150,7 @@ EXAMPLES = '''
     user_principal_name: "{{ user_id }}"
     tenant: "{{ tenant_id }}"
     state: "absent"
+
 '''
 
 RETURN = '''
@@ -153,13 +165,13 @@ display_name:
         - The display name of the user.
     returned: always
     type: str
-    sample: ansibletest
+    sample: John Smith
 user_principal_name:
     description:
         - The principal name of the user.
     returned: always
     type: str
-    sample: John Smith
+    sample: jsmith@contoso.com
 mail_nickname:
     description:
         - The mail alias for the user.
@@ -172,18 +184,6 @@ mail:
     returned: always
     type: str
     sample: John.Smith@contoso.com
-surname:
-    description:
-        - The user's surname (family name or last name).
-    type: str
-    returned: always
-    sample: Smith
-given_name:
-    description:
-        - The given name for the user.
-    returned: always
-    type: str
-    sample: John
 account_enabled:
     description:
         - Whether the account is enabled.
@@ -196,6 +196,18 @@ user_type:
     returned: always
     type: str
     sample: Member
+surname:
+    description:
+        - The user's surname (family name or last name).
+    type: str
+    returned: always
+    sample: Smith
+given_name:
+    description:
+        - The given name for the user.
+    returned: always
+    type: str
+    sample: John
 '''
 
 from ansible_collections.azure.azcollection.plugins.module_utils.azure_rm_common_ext import AzureRMModuleBase
@@ -204,42 +216,44 @@ import json
 
 class AzureRMADUser(AzureRMModuleBase):
     def __init__(self):
+
         self.module_arg_spec = dict(
             user_principal_name=dict(type='str'),
             state=dict(type='str', default='present', choices=['present', 'absent']),
             object_id=dict(type='str'),
-            account_enabled=dict(type='bool', default=True),
-            display_name=dict(type='str'),
-            password_profile=dict(type='str', no_log=True),
-            mail_nickname=dict(type='str'),
-            mail=dict(type='str'),
-            tenant=dict(type='str'),
-            immutable_id=dict(type='str'),
             attribute_name=dict(type='str'),
             attribute_value=dict(type='str'),
             odata_filter=dict(type='str'),
+            account_enabled=dict(type='bool'),
+            display_name=dict(type='str'),
+            password_profile=dict(type='str', no_log=True),
+            mail_nickname=dict(type='str'),
+            immutable_id=dict(type='str'),
             usage_location=dict(type='str'),
             given_name=dict(type='str'),
             surname=dict(type='str'),
             user_type=dict(type='str'),
+            mail=dict(type='str'),
+            tenant=dict(type='str'),
         )
 
+        self.tenant = None
         self.user_principal_name = None
         self.state = None
         self.object_id = None
+        self.attribute_name = None
+        self.attribute_value = None
+        self.odata_filter = None
         self.account_enabled = None
         self.display_name = None
         self.password_profile = None
         self.mail_nickname = None
-        self.mail = None
         self.immutable_id = None
         self.usage_location = None
         self.given_name = None
         self.surname = None
         self.user_type = None
-        self.attribute_name = None
-        self.attribute_value = None
-        self.odata_filter = None
+        self.mail = None
         self.log_path = None
         self.log_mode = None
 
@@ -255,14 +269,12 @@ class AzureRMADUser(AzureRMModuleBase):
                                             supports_tags=False,
                                             mutually_exclusive=mutually_exclusive,
                                             required_together=required_together,
-                                            required_one_of=required_one_of,
-                                            )
+                                            required_one_of=required_one_of)
 
     def exec_module(self, **kwargs):
 
         for key in list(self.module_arg_spec.keys()):
             setattr(self, key, kwargs[key])
-
             if key == 'display_name' and kwargs[key] is not None:
                 self.body['displayName'] = kwargs[key]
             elif key == 'password_profile' and kwargs[key] is not None:
@@ -288,117 +300,40 @@ class AzureRMADUser(AzureRMModuleBase):
 
         client = self.get_msgraph_client()
         changed = False
-        response = self.get_exisiting_user(client)
 
         try:
-            if self.object_id:
-                response = client.get('/users/' + self.object_id).json()
-            elif self.display_name is not None:
-                response = client.get('/users/').json()['value']
-                flag = False
-                for item in response:
-                    if item['displayName'] == self.display_name:
-                        flag = True
-                        response = item
-                        break
-                if not flag:
-                    response = None
-            elif self.user_principal_name is not None:
-                response = client.get('/users/').json()['value']
-                flag = False
-                for item in response:
-                    if item['userPrincipalName'] == self.user_principal_name:
-                        flag = True
-                        response = item
-                        break
-                if not flag:
-                    response = None
-            elif self.odata_filter is not None:
-                url = '/users' + self.odata_filter
-                response = client.get(url).json()
-            elif self.attribute_name is not None and self.attribute_value is not None:
-                res = client.get('/users/').json()['value']
-                for item in res:
-                    if item[self.attribute_name] == self.attribute_value:
-                        response = item
+            ad_user = self.get_exisiting_user(client)
+
+            if self.state == 'present':
+                if ad_user:  # Update, changed
+                    if (self.body.get('displayName') is not None and ad_user['displayName'] != self.body.get('displayName')) |\
+                        (self.body.get('givenName') is not None and ad_user['givenName'] != self.body.get('givenName')) |\
+                        (self.body.get('mail') is not None and ad_user['mail'] != self.body.get('mail')) |\
+                        (self.body.get('surname') is not None and ad_user['surname'] != self.body.get('surname')) |\
+                        (self.body.get('userPrincipalName') is not None and ad_user['userPrincipalName'] != self.body.get('userPrincipalName')):
+
+                        changed = True
+                        ad_user = self.update_resource(ad_user['id'], self.body)
+                        self.log("The ad user account exist, It will be update")
+                else:
+                    self.log("The ad user account doest' exist, It will be create")
+                    ad_user = self.create_resource(self.body)
+                    changed = True
+            else:
+                if ad_user:
+                    ad_user = self.delete_resource(ad_user['id'])
+                    changed = True
+                else:
+                    changed = False
+                    self.log("The ad user account does not exist")
+
+            self.results['ad_user'] = self.to_dict(ad_user)
+            self.results['changed'] = changed
 
         except Exception as e:
-            self.fail("failed to get ad user info {0}".format(str(e)))
-
-        if response is not None and response.get('error'):
-            response = None
-
-        if response is not None:
-            if self.state == 'present':
-                if (self.body.get('displayName') is not None and response['displayName'] != self.body.get('displayName')) |\
-                    (self.body.get('givenName') is not None and response['givenName'] != self.body.get('givenName')) |\
-                    (self.body.get('mail') is not None and response['mail'] != self.body.get('mail')) |\
-                    (self.body.get('surname') is not None and response['surname'] != self.body.get('surname')) |\
-                    (self.body.get('userPrincipalName') is not None and response['userPrincipalName'] != self.body.get('userPrincipalName')):
-
-                    changed = True
-                    response = self.update_resource(response['id'], self.body)
-                    self.log("The ad user account exist, It will be update")
-            else:
-                response = self.delete_resource(response['id'])
-                changed = True
-        else:
-            if self.state == 'present':
-                response = self.create_resource(self.body)
-                changed = True
-            else:
-                changed = False
-                response = None
-                self.log("The ad user account does not exist")
-
-        self.results['state'] = self.user_to_dict(response)
-        self.results['changed'] = changed
+            self.fail("failed to Managed ad user info {0}".format(str(e)))
 
         return self.results
-
-    def get_exisiting_user(self, client):
-        response = None
-        try:
-            if self.object_id:
-                response = client.get('/users/' + self.object_id).json()
-            elif self.display_name is not None:
-                response = client.get('/users/').json()['value']
-                flag = False
-                for item in response:
-                    if item['displayName'] == self.display_name:
-                        flag = True
-                        response = item
-                        break
-                if not flag:
-                    response = None
-            elif self.user_principal_name is not None:
-                response = client.get('/users/').json()['value']
-                flag = False
-                for item in response:
-                    if item['userPrincipalName'] == self.user_principal_name:
-                        flag = True
-                        response = item
-                        break
-                if not flag:
-                    response = None
-            elif self.odata_filter is not None:
-                url = '/users' + self.odata_filter
-                response = client.get(url).json()
-                if len(response) > 1:
-                    response = response[0]
-            elif self.attribute_name is not None and self.attribute_value is not None:
-                res = client.get('/users/').json()['value']
-                for item in res:
-                    if item[self.attribute_name] == self.attribute_value:
-                        response = item
-
-        except Exception as e:
-            self.fail("failed to get ad user info {0}".format(str(e)))
-
-        if response is not None and response.get('error'):
-            response = None
-
-        return response
 
     def update_resource(self, obj_id, obj):
         client = self.get_msgraph_client()
@@ -435,21 +370,47 @@ class AzureRMADUser(AzureRMModuleBase):
         except Exception as e:
             self.fail("Error deleting ad users {0}".format(str(e)))
 
-    def user_to_dict(self, object):
-        if object:
-            return dict(
-                object_id=object['id'],
-                display_name=object['displayName'],
-                user_principal_name=object['userPrincipalName'],
-                given_name=object['givenName'],
-                surname=object['surname'],
-                mail=object['mail'],
-                user_type=object.get('userType'),
-                mail_nickname=object.get('mailNickname'),
-                account_enabled=object.get('accountEnabled')
-            )
-        else:
+    def get_exisiting_user(self, client):
+        response = None
+        try:
+            if self.object_id:
+                response = client.get('/users/' + self.object_id).json()
+            elif self.user_principal_name is not None:
+                response = client.get('/users/' + self.user_principal_name).json()
+            elif self.odata_filter is not None:
+                # run a filter based on user input to return based on any given attribute/query
+                # Such as self.odata_filter = startswith(userPrincipalName, 'test1')
+                url = '/users?$filter=' + self.odata_filter
+                response = client.get(url).json()['value'][0]
+            elif self.attribute_name is not None and self.attribute_value is not None:
+                res = client.get('/users/').json()['value']
+                for item in res:
+                    if item[self.attribute_name] == self.attribute_value:
+                        response = item
+                        break
+
+        except Exception as e:
+            self.fail("failed to get ad user info {0}".format(str(e)))
+
+        if response is not None and response.get('error'):
+            response = None
+
+        return response
+
+    def to_dict(self, object):
+        if object is None:
             return []
+        return dict(
+            object_id=object['id'],
+            display_name=object['displayName'],
+            user_principal_name=object['userPrincipalName'],
+            mail_nickname=object.get('mailNickname'),
+            mail=object['mail'],
+            account_enabled=object.get('accountEnabled'),
+            user_type=object.get('userType'),
+            given_name=object['givenName'],
+            surname=object['surname'],
+        )
 
 
 def main():
