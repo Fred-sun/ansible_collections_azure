@@ -28,7 +28,6 @@ options:
         description:
             - The tenant ID.
         type: str
-        required: True
     object_id:
         description:
             - It's application's object ID.
@@ -100,13 +99,6 @@ applications:
 
 from ansible_collections.azure.azcollection.plugins.module_utils.azure_rm_common_ext import AzureRMModuleBase
 
-try:
-    from msrestazure.azure_exceptions import CloudError
-    from azure.graphrbac.models import GraphErrorException
-except ImportError:
-    # This is handled in azure_rm_common
-    pass
-
 
 class AzureRMADApplicationInfo(AzureRMModuleBase):
 
@@ -123,7 +115,6 @@ class AzureRMADApplicationInfo(AzureRMModuleBase):
             ),
             tenant=dict(
                 type='str',
-                required=True
             )
         )
         self.tenant = None
@@ -133,8 +124,7 @@ class AzureRMADApplicationInfo(AzureRMModuleBase):
         self.results = dict(changed=False)
         super(AzureRMADApplicationInfo, self).__init__(derived_arg_spec=self.module_arg_spec,
                                                        supports_check_mode=True,
-                                                       supports_tags=False,
-                                                       is_ad_resource=True)
+                                                       supports_tags=False)
 
     def exec_module(self, **kwargs):
         for key in list(self.module_arg_spec.keys()):
@@ -142,30 +132,31 @@ class AzureRMADApplicationInfo(AzureRMModuleBase):
 
         applications = []
         try:
-            client = self.get_graphrbac_client(self.tenant)
+            client = self.get_msgraph_client()
             if self.object_id:
-                applications = [client.applications.get(self.object_id)]
+                applications = [client.get('/applications/' + self.object_id).json()]
             else:
-                sub_filters = []
-                if self.identifier_uri:
-                    sub_filters.append("identifierUris/any(s:s eq '{0}')".format(self.identifier_uri))
-                if self.app_id:
-                    sub_filters.append("appId eq '{0}'".format(self.app_id))
-                # applications = client.applications.list(filter=(' and '.join(sub_filters)))
-                applications = list(client.applications.list(filter=(' and '.join(sub_filters))))
-
+                apps = [client.get('/applications/').json()]
+                if self.app_id is not None:
+                    for item in apps:
+                        if item['appId'] == self.app_id:
+                            applications.append(item)
+                if self.identifier_uri is not None:
+                    for item in apps:
+                        if item.get('identifierUris') == self.identifier_uri:
+                            applications.append(item)
             self.results['applications'] = [self.to_dict(app) for app in applications]
-        except GraphErrorException as ge:
+        except Exception as ge:
             self.fail("failed to get application info {0}".format(str(ge)))
 
         return self.results
 
     def to_dict(self, object):
         return dict(
-            app_id=object.app_id,
-            object_id=object.object_id,
-            app_display_name=object.display_name,
-            identifier_uris=object.identifier_uris
+            app_id=object['appId'],
+            object_id=object['id'],
+            app_display_name=object['displayName'],
+            identifier_uris=object['dentifierUris']
         )
 
 
