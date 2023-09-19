@@ -151,13 +151,6 @@ user_type:
 
 from ansible_collections.azure.azcollection.plugins.module_utils.azure_rm_common_ext import AzureRMModuleBase
 
-try:
-    from msrestazure.azure_exceptions import CloudError
-    from azure.graphrbac.models import GraphErrorException
-except ImportError:
-    # This is handled in azure_rm_common
-    pass
-
 
 class AzureRMADUserInfo(AzureRMModuleBase):
     def __init__(self):
@@ -204,43 +197,40 @@ class AzureRMADUserInfo(AzureRMModuleBase):
         ad_users = []
 
         try:
-            client = self.get_graphrbac_client(self.tenant)
+            client = self.get_msgraph_client()
 
             if self.user_principal_name is not None:
-                ad_users = [client.users.get(self.user_principal_name)]
+                ad_users = [client.get('/users/' + self.user_principal_name).json()]
             elif self.object_id is not None:
-                ad_users = [client.users.get(self.object_id)]
+                ad_users = [client.get('/users/' + self.object_id).json()]
             elif self.attribute_name is not None and self.attribute_value is not None:
-                try:
-                    ad_users = list(client.users.list(filter="{0} eq '{1}'".format(self.attribute_name, self.attribute_value)))
-                except GraphErrorException as e:
-                    # the type doesn't get more specific. Could check the error message but no guarantees that message doesn't change in the future
-                    # more stable to try again assuming the first error came from the attribute being a list
-                    try:
-                        ad_users = list(client.users.list(filter="{0}/any(c:c eq '{1}')".format(self.attribute_name, self.attribute_value)))
-                    except GraphErrorException as sub_e:
-                        raise
-            elif self.odata_filter is not None:  # run a filter based on user input to return based on any given attribute/query
-                ad_users = list(client.users.list(filter=self.odata_filter))
+                response = client.get('/users/').json()['value']
+                for item in response:
+                    if item[self.attribute_name] == self.attribute_value:
+                        ms_user.append(item)
+            elif self.all:
+                ad_user = client.get('/users/').json()['value']
             elif self.all:
                 ad_users = list(client.users.list())
 
             self.results['ad_users'] = [self.to_dict(user) for user in ad_users]
 
-        except GraphErrorException as e:
+        except Exception as e:
             self.fail("failed to get ad user info {0}".format(str(e)))
 
         return self.results
 
     def to_dict(self, object):
+        if object is None:
+            return
+
         return dict(
-            object_id=object.object_id,
-            display_name=object.display_name,
-            user_principal_name=object.user_principal_name,
-            mail_nickname=object.mail_nickname,
-            mail=object.mail,
-            account_enabled=object.account_enabled,
-            user_type=object.user_type
+            object_id=object['id'],
+            display_name=object['displayName'],
+            user_principal_name=object['userPrincipalName'],
+            mail=object['mail'],
+            given_name=object['givenName'],
+            surname=object['surname'],
         )
 
 
