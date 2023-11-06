@@ -45,7 +45,6 @@ options:
     storage_profile:
         description:
             - Storage profile
-            - Required when creating.
         type: dict
         suboptions:
             source_image:
