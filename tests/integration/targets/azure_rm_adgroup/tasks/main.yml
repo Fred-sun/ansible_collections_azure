@@ -1,7 +1,7 @@
 - name: Set variables
   ansible.builtin.set_fact:
     tenant_id: "{{ azure_tenant }}"
-    resource_prefix: "{{ 999999999999999999994 | random | to_uuid }}"
+    resource_prefix: "{{ (2**128) | random | to_uuid }}"
   run_once: true
 
 - name: Try to return non-existent group using display name

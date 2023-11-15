@@ -1,9 +1,9 @@
 - name: Prepare facts
   ansible.builtin.set_fact:
     tenant_id: "{{ azure_tenant }}"
-    user_id: "user{{ 999999999999999999994 | random | to_uuid }}@contoso.com"
-    object_id: "{{ 999999999999999999994 | random | to_uuid }}"
-    user_principal_name: "{{ 999999999999999999994 | random | to_uuid }}"
+    user_id: "user{{ (2**128) | random | to_uuid }}@contoso.com"
+    object_id: "{{ (2**128) | random | to_uuid }}"
+    user_principal_name: "{{ (2**128) | random | to_uuid }}"
   run_once: true
 
 - name: Create test user
