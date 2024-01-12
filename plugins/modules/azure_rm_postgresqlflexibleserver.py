@@ -11,7 +11,7 @@ __metaclass__ = type
 DOCUMENTATION = '''
 ---
 module: azure_rm_postgresqlflexibleserver
-version_added: "1.16.0"
+version_added: 1.16.0
 short_description: Manage PostgreSQL Flexible Server instance
 description:
     - Create, update and delete instance of PostgreSQL Flexible Server.
@@ -21,12 +21,12 @@ options:
         description:
             - The name of the resource group that contains the resource.
             - You can obtain this value from the Azure Resource Manager API or the portal.
-        required: True
+        required: true
         type: str
     name:
         description:
             - The name of the flexible server.
-        required: True
+        required: true
         type: str
     sku:
         description:
@@ -37,7 +37,7 @@ options:
                 description:
                     - The name of the sku, typically, tier + family + cores, such as Standard_D4s_v3.
                 type: str
-                required: True
+                required: true
             tier:
                 description:
                     - The tier of the particular
@@ -46,7 +46,7 @@ options:
                     - Burstable
                     - GeneralPurpose
                     - MemoryOptimized
-                required: True
+                required: true
     location:
         description:
             - Resource location. If not set, location from the resource group will be used as default.
@@ -77,6 +77,7 @@ options:
             - '11'
             - '12'
             - '13'
+            - '14'
     fully_qualified_domain_name:
         description:
             - The fully qualified domain name of a server.
@@ -317,11 +318,12 @@ servers:
                 - Flexible Server version.
             returned: always
             type: str
-            sample: "12"
+            sample: '14'
             choices:
                 - '11'
                 - '12'
                 - '13'
+                - '14'
         fully_qualified_domain_name:
             description:
                 - The fully qualified domain name of the flexible server.
@@ -563,7 +565,7 @@ class AzureRMPostgreSqlFlexibleServers(AzureRMModuleBase):
             ),
             version=dict(
                 type='str',
-                choices=['11', '12', '13']
+                choices=['11', '12', '13', '14']
             ),
             fully_qualified_domain_name=dict(
                 type='str',
