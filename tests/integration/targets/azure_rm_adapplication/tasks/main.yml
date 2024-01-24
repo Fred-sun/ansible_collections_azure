@@ -15,6 +15,7 @@
 - name: Create application again idempotent test
   azure_rm_adapplication:
     app_id: "{{ create_output.app_id }}"
+    display_name: "{{ display_name }}"
   register: output
 
 - name: Assert the idempotent success
