@@ -97,6 +97,10 @@ EXAMPLES = '''
   azure_rm_monitordatacollectionendpoint:
     resource_group: myResourceGroup
     name: mydatacollectionendpoint
+    kind: Windows
+    description: fredtest01
+    network_acls:
+    public_network_access: Disabled
     tags:
       testing: testing
       delete: on-exit

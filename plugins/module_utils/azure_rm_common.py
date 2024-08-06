@@ -444,6 +444,7 @@ class AzureRMModuleBase(object):
         self._monitor_autoscale_settings_client = None
         self._monitor_log_profiles_client = None
         self._monitor_diagnostic_settings_client = None
+        self._monitor_data_collection_client = None
         self._resource = None
         self._log_analytics_client = None
         self._servicebus_client = None
@@ -1265,6 +1266,15 @@ class AzureRMModuleBase(object):
                                                                                base_url=self._cloud_environment.endpoints.resource_manager,
                                                                                api_version="2015-04-01")
         return self._monitor_autoscale_settings_client
+
+    @property
+    def monitor_data_collection_client(self):
+        self.log('Getting monitor client for data_collection')
+        if not self._monitor_data_collection_client:
+            self._monitor_data_collection_client = self.get_mgmt_svc_client(MonitorManagementClient,
+                                                                         base_url=self._cloud_environment.endpoints.resource_manager,
+                                                                         api_version="2022-06-01")
+        return self._monitor_data_collection_client
 
     @property
     def monitor_log_profiles_client(self):
