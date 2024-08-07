@@ -10,11 +10,11 @@ __metaclass__ = type
 
 DOCUMENTATION = '''
 ---
-module: azure_rm_monitordatacollectionendpoint
+module: azure_rm_monitordatacollectionrule
 version_added: "2.7.0"
-short_description: Manage Data Collection Endpoint.
+short_description: Manage Data Collection rule.
 description:
-    - Create, update or delete the Data Collection Endpoint.
+    - Create, update or delete the Data Collection rule.
 options:
     resource_group:
         description:
@@ -27,7 +27,7 @@ options:
         type: str
     name:
         description:
-            - The name of the Data Collection Endpoint.
+            - The name of the Data Collection rule.
         required: true
         type: str
     kind:
@@ -39,16 +39,16 @@ options:
             - Windows
     description:
         description:
-            - Description of the data collection endpoint.
+            - Description of the data collection rule.
         type: str
     network_acls:
         description:
-            - Network access control rules for the endpoints.
+            - Network access control rules for the rules.
         type: dict
         suboptions:
             public_network_access:
                 description:
-                    - The configuration to set whether network access from public internet to the endpoints are allowed.
+                    - The configuration to set whether network access from public internet to the rules are allowed.
                 type: str
                 choices:
                     - Enabled
@@ -56,7 +56,7 @@ options:
                     - SecuredByPerimeter
     state:
         description:
-            - State of the Data Collection Endpoint. Use C(present) to create or update and C(absent) to delete.
+            - State of the Data Collection rule. Use C(present) to create or update and C(absent) to delete.
         default: present
         type: str
         choices:
@@ -74,10 +74,10 @@ author:
 '''
 
 EXAMPLES = '''
-- name: Create a Data Collection Endpoint
-  azure_rm_monitordatacollectionendpoint:
+- name: Create a Data Collection rule
+  azure_rm_monitordatacollectionrule:
     resource_group: myResourceGroup
-    name: mydatacollectionendpoint
+    name: mydatacollectionrule
     kind: Windows
     description: fredtest01
     network_acls:
@@ -86,16 +86,16 @@ EXAMPLES = '''
       testing: testing
       delete: on-exit
 
-- name: Delete a Data Collection Endpoint
-  azure_rm_monitordatacollectionendpoint:
+- name: Delete a Data Collection rule
+  azure_rm_monitordatacollectionrule:
     resource_group: myResourceGroup
-    name: mydatacollectionendpoint
+    name: mydatacollectionrule
     state: absent
 '''
 RETURN = '''
 state:
     description:
-        - Current state of the Data Collection Endpoint.
+        - Current state of the Data Collection rule.
     returned: always
     type: complex
     contains:
@@ -110,7 +110,7 @@ state:
                 - Resource name.
             returned: always
             type: str
-            sample: myDataCollectionEndpoint
+            sample: myDataCollectionrule
         resource_group:
             description:
                 - The resource group name.
@@ -122,10 +122,10 @@ state:
                 - Fully qualified ID of the resource.
             type: dict
             returned: always
-            sample: "/subscriptions/xxx-xxx/resourceGroups/testRG/providers/Microsoft.Insights/dataCollectionEndpoints/freddata01"
+            sample: "/subscriptions/xxx-xxx/resourceGroups/testRG/providers/Microsoft.Insights/dataCollectionrules/freddata01"
         description:
             descritpion:
-                - Description of the data collection endpoint.
+                - Description of the data collection rule.
             type: dict
             returned: always
             sample: fred test
@@ -143,7 +143,7 @@ state:
             sample: Linux
         network_acls:
             descritpion:
-                - Network access control rules for the endpoints.
+                - Network access control rules for the rules.
             type: dict
             returned: always
             sample: {"public_network_access": "Enabled"}
@@ -158,7 +158,7 @@ state:
                 - The type of the resource.
             type: str
             returned: always
-            sample: Microsoft.Insights/dataCollectionEndpoints
+            sample: Microsoft.Insights/dataCollectionrules
         provisioning_state:
             description:
                 - The resource provisioning state.
@@ -170,6 +170,8 @@ state:
 try:
     from azure.core.exceptions import HttpResponseError
     from azure.mgmt.monitor.v2022_06_01.models import ManagedServiceIdentity, UserAssignedIdentity
+    import logging
+    logging.basicConfig(filename='log.log', level=logging.INFO)
 except ImportError:
     # This is handled in azure_rm_common
     pass
@@ -177,7 +179,13 @@ except ImportError:
 from ansible_collections.azure.azcollection.plugins.module_utils.azure_rm_common_ext import AzureRMModuleBaseExt
 
 
-class AzureRMMonitorDataCollectionEndpoint(AzureRMModuleBaseExt):
+columns_spec = dict(
+    name=dict(type='str'),
+    type=dict(type='str', choices=["string", "int", "long", "real", "boolean", "datetime", "dynamic"])
+)
+
+
+class AzureRMMonitorDataCollectionrule(AzureRMModuleBaseExt):
 
     def __init__(self):
 
@@ -188,12 +196,69 @@ class AzureRMMonitorDataCollectionEndpoint(AzureRMModuleBaseExt):
             location=dict(type='str'),
             kind=dict(type='str', choices=['Linux', 'Windows']),
             description=dict(type='str'),
-            network_acls=dict(
+            data_collection_endpoint_id=dict(type='str'),
+            stream_declarations=dict(
                 type='dict',
                 options=dict(
-                    public_network_access=dict(type='str', choices=['Enabled', 'Disabled', 'SecuredByPerimeter'])
+                    columns=dict(type='list', elements='dict', options=columns_spec)
                 )
             ),
+            data_sources=dict(
+                type='dict',
+                options=dict(
+                    performance_counters=dict(
+                    windows_event_logs=dict(
+                    syslog=dict(
+                    extensions=dict(
+                    iis_logs=dict(
+                        type='dict',
+                        options=dict(
+                            streams=dict(type='list', elements='str'),
+                            name=dict(type='str'),
+                            log_directories=dict(type='list', elements='str')
+                        )
+                    ),
+                    windows_firewall_logs=dict(
+                        type='dict',
+                        options=dict(
+                            name=dict(type='str'),
+                            streams=dict(type='list', elements='str')
+                        )
+                    ),
+                    prometheus_forwarder=dict(
+                        type='list',
+                        elements='dict',
+                        options=dict(
+                            streams=dict(type='list', elements='str', choices=['Microsoft-PrometheusMetrics']),
+                            label_include_filter=dict(type='dict'),
+                            name=dict(type='str')
+                        )
+                    )
+                    platform_telemetry=dict(
+                        type='list',
+                        elements='dict',
+                        options=dict(
+                            streams=dict(type='list', elements='str'),
+                            name=dict(type='str')
+                        )
+                    ),
+                    data_imports=dict(
+                        type='dict',
+                        options=dict(
+                            event_hub=dict(
+                                type='dict',
+                                options=dict(
+                                    name=dict(type='str'),
+                                    consumer_group=dict(type='str'),
+                                    stream=dict(type='str')
+                                )
+                            )
+                        )
+                    )
+                )
+            ),
+            destinations=dict(type='dict', options=destinations_spec),
+            data_flows=dict(type='list', elements='dict', options=data_flows_spec),
         )
 
         self.resource_group = None
@@ -210,7 +275,7 @@ class AzureRMMonitorDataCollectionEndpoint(AzureRMModuleBaseExt):
             state=dict()
         )
 
-        super(AzureRMMonitorDataCollectionEndpoint, self).__init__(self.module_arg_spec,
+        super(AzureRMMonitorDataCollectionrule, self).__init__(self.module_arg_spec,
                                                                    supports_tags=True,
                                                                    supports_check_mode=True)
 
@@ -251,7 +316,7 @@ class AzureRMMonitorDataCollectionEndpoint(AzureRMModuleBaseExt):
                     results = self.create(self.body)
             else:
                 changed = False
-                self.log("The Data Collection Endpoint is not exists")
+                self.log("The Data Collection rule is not exists")
 
         self.results['changed'] = changed
         self.results['state'] = results
@@ -261,36 +326,36 @@ class AzureRMMonitorDataCollectionEndpoint(AzureRMModuleBaseExt):
     def get_by_name(self):
         response = None
         try:
-            response = self.monitor_data_collection_client.data_collection_endpoints.get(self.resource_group, self.name)
+            response = self.monitor_data_collection_client.data_collection_rules.get(self.resource_group, self.name)
 
         except HttpResponseError as exec:
-            self.log("Failed to get Data Collection Endpoint, Exception as {0}".format(exec))
+            self.log("Failed to get Data Collection rule, Exception as {0}".format(exec))
 
         return self.to_dict(response)
 
     def create(self, body):
         response = None
         try:
-            response = self.monitor_data_collection_client.data_collection_endpoints.create(self.resource_group, self.name, body)
+            response = self.monitor_data_collection_client.data_collection_rules.create(self.resource_group, self.name, body)
         except HttpResponseError as exc:
-            self.fail("Error creating Data Collection Endpoint {0} - {1}".format(self.name, str(exc)))
+            self.fail("Error creating Data Collection rule {0} - {1}".format(self.name, str(exc)))
 
         return self.to_dict(response)
 
     def update(self, body):
         response = None
         try:
-            response = self.monitor_data_collection_client.data_collection_endpoints.update(self.resource_group, self.name, body)
+            response = self.monitor_data_collection_client.data_collection_rules.update(self.resource_group, self.name, body)
         except HttpResponseError as exc:
-            self.fail("Error creating Data Collection Endpoint {0} - {1}".format(self.name, str(exc)))
+            self.fail("Error creating Data Collection rule {0} - {1}".format(self.name, str(exc)))
 
         return self.to_dict(response)
 
     def delete(self):
         try:
-            self.monitor_data_collection_client.data_collection_endpoints.delete(self.resource_group, self.name)
+            self.monitor_data_collection_client.data_collection_rules.delete(self.resource_group, self.name)
         except Exception as exc:
-            self.fail("Error deleting Data Collection Endpoint {0} - {1}".format(self.name, str(exc)))
+            self.fail("Error deleting Data Collection rule {0} - {1}".format(self.name, str(exc)))
 
     def to_dict(self, body):
         if body:
@@ -312,7 +377,7 @@ class AzureRMMonitorDataCollectionEndpoint(AzureRMModuleBaseExt):
 
 
 def main():
-    AzureRMMonitorDataCollectionEndpoint()
+    AzureRMMonitorDataCollectionrule()
 
 
 if __name__ == '__main__':
