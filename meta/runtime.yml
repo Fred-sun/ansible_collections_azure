@@ -305,3 +305,5 @@ action_groups:
     - azure.azcollection.azure_rm_networkflowlog_info
     - azure.azcollection.azure_rm_capacityreservationgroup
     - azure.azcollection.azure_rm_capacityreservationgroup_info
+    - azure.azcollection.azure_rm_monitordatacollectionendpoint
+    - azure.azcollection.azure_rm_monitordatacollectionendpoint_info

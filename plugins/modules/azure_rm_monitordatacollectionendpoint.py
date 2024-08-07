@@ -37,25 +37,6 @@ options:
         choices:
             - Linux
             - Windows
-    identity:
-        description:
-            - Identity for the Data Collection Endpoint.
-        type: dict
-        suboptions:
-            type:
-                description:
-                    - Type of the managed identity.
-                choices:
-                    - SystemAssigned
-                    - UserAssigned
-                    - SystemAssigned, UserAssigned
-                    - None
-                default: None
-                type: str
-            user_assigned_identities:
-                description:
-                    - User Assigned Managed Identities and its options.
-                type: str
     description:
         description:
             - Description of the data collection endpoint.
@@ -100,7 +81,7 @@ EXAMPLES = '''
     kind: Windows
     description: fredtest01
     network_acls:
-    public_network_access: Disabled
+      public_network_access: Disabled
     tags:
       testing: testing
       delete: on-exit
@@ -215,7 +196,6 @@ class AzureRMMonitorDataCollectionEndpoint(AzureRMModuleBaseExt):
                     public_network_access=dict(type='str', choices=['Enabled', 'Disabled', 'SecuredByPerimeter'])
                 )
             ),
-            identity=dict(type='dict', options=self.managed_identity_single_spec)
         )
 
         self.resource_group = None
@@ -225,9 +205,6 @@ class AzureRMMonitorDataCollectionEndpoint(AzureRMModuleBaseExt):
         self.kind = None
         self.description = None
         self.network_acls = None
-        self.identity = None
-        self.update_identity = None
-        self._managed_identity = None
         self.body = {}
 
         self.results = dict(
@@ -238,15 +215,6 @@ class AzureRMMonitorDataCollectionEndpoint(AzureRMModuleBaseExt):
         super(AzureRMMonitorDataCollectionEndpoint, self).__init__(self.module_arg_spec,
                                                                    supports_tags=True,
                                                                    supports_check_mode=True)
-
-    @property
-    def managed_identity(self):
-        if not self._managed_identity:
-            self._managed_identity = {"identity": ManagedServiceIdentity,
-                                      "user_assigned": UserAssignedIdentity
-                                      }
-        return self._managed_identity
-
 
     def exec_module(self, **kwargs):
 
@@ -265,23 +233,10 @@ class AzureRMMonitorDataCollectionEndpoint(AzureRMModuleBaseExt):
 
         old_response = self.get_by_name()
 
-        curr_identity = old_response["identity"] if old_response else None
-
-        if self.body['identity']:
-            self.update_identity, identity_result = self.update_single_managed_identity(curr_identity=curr_identity,
-                                                                                        new_identity=self.body['identity'],
-                                                                                        patch_support=True)
-            logging.info('pppp')
-            logging.info(self.update_identity)
-            logging.info(identity_result)
-            logging.info(self.body['identity'])
-            logging.info('eeee')
-            self.body['identity'] = identity_result.as_dict()
-
         if old_response is not None:
             if self.state == 'present':
                 update_tags, self.body['tags'] = self.update_tags(old_response['tags'])
-                if update_tags or self.update_identity:
+                if update_tags:
                     changed = True
                     if not self.check_mode:
                         results = self.update(self.body)
@@ -350,7 +305,6 @@ class AzureRMMonitorDataCollectionEndpoint(AzureRMModuleBaseExt):
                 description=body.description,
                 kind=body.kind,
                 provisioning_state=body.provisioning_state,
-                description=body.description,
                 identity=body.identity.as_dict() if body.identity else None,
                 network_acls=dict()
             )

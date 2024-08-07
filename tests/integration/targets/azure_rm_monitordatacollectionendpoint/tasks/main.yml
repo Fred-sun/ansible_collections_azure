@@ -1,0 +1,106 @@
+- name: Prepare random number
+  ansible.builtin.set_fact:
+    rpfx: "{{ resource_group | hash('md5') | truncate(20, True, '') }}"
+
+- name: Create a new data collection endpoint
+  azure_rm_monitordatacollectionendpoint_info:
+    resource_group: "{{ resource_group }}"
+  register: output
+
+- name: Assert there is no data collection endpoints
+  ansible.builtin.assert:
+    that:
+      - output.state |length == 0
+
+- name: Create a new data collection endpoint(Checkmode test)
+  azure_rm_monitordatacollectionendpoint:
+    resource_group: "{{ resource_group }}"
+    name: "datacollection{{ rpfx }}"
+    kind: Windows
+    description: fredtest01
+    network_acls:
+      public_network_access: Disabled
+    tags:
+      key: value
+    state: absent
+  register: output
+  check_mode: true
+
+- name: Create a new data collection endpoint
+  azure_rm_monitordatacollectionendpoint:
+    resource_group: "{{ resource_group }}"
+    name: "datacollection{{ rpfx }}"
+    kind: Windows
+    description: fredtest01
+    network_acls:
+      public_network_access: Disabled
+    tags:
+      key: value
+    state: absent
+  register: output
+
+- name: Assert the data collection endpoint is well created
+  ansible.builtin.assert:
+    that:
+      - output.changed
+
+- name: Create a new data collection endpoint again
+  azure_rm_monitordatacollectionendpoint:
+    resource_group: "{{ resource_group }}"
+    name: "datacollection{{ rpfx }}"
+    kind: Windows
+    description: fredtest01
+    network_acls:
+      public_network_access: Disabled
+    tags:
+      key: value
+    state: absent
+  register: output
+
+- name: Assert the data collection endpoint no changed
+  ansible.builtin.assert:
+    that:
+      - not output.changed
+
+- name: Update the data collection endpoint tags
+  azure_rm_monitordatacollectionendpoint:
+    resource_group: "{{ resource_group }}"
+    name: "datacollection{{ rpfx }}"
+    kind: Windows
+    description: fredtest01
+    network_acls:
+      public_network_access: Disabled
+    tags:
+      key2: value2
+    state: absent
+  register: output
+
+- name: Assert the data collection endpoint is well updated
+  ansible.builtin.assert:
+    that:
+      - output.changed
+
+- name: Get the data colleciton fact
+  azure_rm_monitordatacollectionendpoint_info:
+    resource_group: "{{ resource_group }}"
+    name: "datacollection{{ rpfx }}"
+  register: output
+
+- name: Assert the data collection endpoint facts
+  ansible.builtin.assert:
+    that:
+      - output.state[0].description == 'fredtest01'
+      - output.state[0].network_acls.public_network_access == 'Disabled'
+      - output.state[0].tags | length == 2
+
+- name: Delete the data collection endpoint 
+  azure_rm_monitordatacollectionendpoint:
+    resource_group: "{{ resource_group }}"
+    name: "datacollection{{ rpfx }}"
+    state: absent
+  register: output
+
+- name: Assert the data collection endpoint deleted
+  ansible.builtin.assert:
+    that:
+      - output.changed
