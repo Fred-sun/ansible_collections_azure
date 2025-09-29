@@ -263,10 +263,7 @@ class AzureRMOracleAutonomousDatabase(AzureRMModuleBaseExt):
         result = None
         response = None
         try:
-            response = self.oracle_autonomous_database_client.autonomous_databases.create(resource_group_name=self.resource_group,
-                                                                                                         oracle_autonomous_database_name=self.name,
-                                                                                                         body=oracle_autonomous_database_update,
-                                                                                                         logging_enable=False)
+            response = self.oracle_autonomous_database_client.autonomous_databases.begin_create_or_update(self.resource_group, self.name, oracle_autonomous_database_update)
         except Exception as ex:
             self.fail("Error creating or update oracle autonomous database {0} in resource group {1}: {2}".format(self.name, self.resource_group, str(ex)))
 
@@ -278,7 +275,7 @@ class AzureRMOracleAutonomousDatabase(AzureRMModuleBaseExt):
     def delete(self):
         response = None
         try:
-            response = self.oracle_autonomous_database_client.autonomous_databases.delete(resource_group_name=self.resource_group,
+            response = self.oracle_autonomous_database_client.autonomous_databases.begin_delete(resource_group_name=self.resource_group,
                                                                                           oracle_autonomous_database_name=self.name)
         except Exception as ex:
             self.fail("Error deleting oracle autonomous database {0} in resource group {1}: {2}".format(self.name, self.resource_group, str(ex)))

@@ -293,7 +293,7 @@ try:
     from azure.mgmt.batch import models as BatchManagementModel
     from azure.mgmt.resourcehealth import ResourceHealthMgmtClient
     from azure.mgmt.cdn import CdnManagementClient
-    from azure.mgmt.oracledatabase import OracleDatabaseManagementClient
+    from azure.mgmt.oracledatabase import OracleDatabaseMgmtClient
 
 except ImportError as exc:
     Authentication = object
@@ -1589,10 +1589,10 @@ class AzureRMModuleBase(object):
     def oracle_autonomous_database_client(self):
         self.log('Getting cdn client...')
         if not self._oracle_autonomous_database_client:
-            self._oracle_autonomous_database_client = self.get_mgmt_svc_client(OracleDatabaseManagementClient,
+            self._oracle_autonomous_database_client = self.get_mgmt_svc_client(OracleDatabaseMgmtClient,
                                                                                base_url=self._cloud_environment.endpoints.resource_manager,
                                                                                api_version='2025-03-01')
-        return self._cdn_client
+        return self._oracle_autonomous_database_client
 
 
 class AzureRMAuthException(Exception):
